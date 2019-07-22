@@ -1,0 +1,5 @@
+* https://github.com/kidd/lc3
+* https://github.com/rpendleton/lc3-2048/blob/master/2048.asm
+* https://justinmeiners.github.io/lc3-vm/index.html#1:9
+* http://hackage.haskell.org/package/LC3
+* https://justinmeiners.github.io/lc3-vm/supplies/lc3-isa.pdf
