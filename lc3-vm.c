@@ -168,8 +168,28 @@ uint16_t mem_read(uint16_t address)
   return memory[address];
 }
 
-void handle_interrupt() {}
-void disable_input_buffering() {}
+/* Input Buffering */
+struct termios original_tio;
+
+void restore_input_buffering(){
+  tcsetattr(STDIN_FILENO, TCSANOW, &original_tio);
+}
+
+void disable_input_buffering() {
+  tcgetattr(STDIN_FILENO,  &original_tio);
+  struct termios new_tio = original_tio;
+  new_tio.c_lflag &= ~ICANON & ~ECHO;
+  tcsetattr(STDIN_FILENO, TCSANOW, &new_tio);
+}
+
+
+void handle_interrupt(int signal) {
+  restore_input_buffering();
+  printf("\n");
+  exit(-2);
+}
+
+
 
 uint swap16(uint16_t x) {
   return (x << 8) |  (x >> 8);
@@ -197,7 +217,6 @@ int read_image(const char *image_path) {
   fclose(file);
   return 1;
 }
-void restore_input_buffering(){}
 
 /* Main Loop */
 
@@ -229,6 +248,7 @@ int main(int argc, const char* argv[])
     /* 0x3000 is the default */
     enum { PC_START = 0x3000 };
     reg[R_PC] = PC_START;
+    reg[R_COND] = 0b010;
 
     int running = 1;
     while (running)
@@ -236,31 +256,25 @@ int main(int argc, const char* argv[])
         /* FETCH */
         uint16_t instr = mem_read(reg[R_PC]++);
         uint16_t op = instr >> 12;
-        printf("%x\n", instr);
-        itob(instr);
-        /* if(op == 0) { exit(1); } */
+        /* printf(" %d: %x\n", reg[R_PC], instr); */
+
+        /* itob(instr); */
         switch (op)
         {
         case OP_BR:
           {
-            uint16_t r0 = (instr >> 9) & 0x7;
-            uint16_t r1 = (instr >> 6) & 0x7;
-            uint16_t imm_flag = (instr >> 5) & 0x1;
+            uint16_t pc_offset = sign_extend((instr) & 0x1ff, 9);
+            uint16_t cond_flag = (instr >> 9) & 0x7;
+            /* printf("cond_flag: "); itob(cond_flag); printf("\n"); */
+            /* printf("cond_reg: "); itob(reg[R_COND]); printf("\n"); */
 
-            if (imm_flag)
+            if (cond_flag & reg[R_COND])
               {
-                uint16_t imm5 = sign_extend(instr & 0x1F, 5);
-                reg[r0] = reg[r1] & imm5;
+                reg[R_PC] += pc_offset;
               }
-            else
-              {
-                uint16_t r2 = instr & 0x7;
-                reg[r0] = reg[r1] & reg[r2];
-              }
-            update_flags(r0);
-            break;
           }
-            case OP_ADD:
+          break;
+        case OP_ADD:
               {
                 /* destination register (DR) */
                 uint16_t r0 = (instr >> 9) & 0x7;
@@ -311,8 +325,11 @@ int main(int argc, const char* argv[])
           break;
         case OP_LD:     /* load */
           {
-            uint16_t r0 = ((instr & 0xFFF) >> 9);
-            uint16_t offset = sign_extend((instr & 0x11111111),  8);
+            /* uint16_t r0 = ((instr & 0xFFF) >> 9); */
+            /* uint16_t offset = sign_extend((instr & 0x11111111),  8); */
+            uint16_t r0 = (instr >> 9) & 0x7;
+            uint16_t offset = sign_extend(instr & 0x1ff, 9);
+
             reg[r0] = mem_read(reg[R_PC] + offset);
             update_flags(r0);
             break;
@@ -384,12 +401,12 @@ int main(int argc, const char* argv[])
     case OP_LEA:    /* load effective address */
       {
 
-        uint16_t r0 = (instr >> 9) & 0x7;
-        uint16_t pc_offset = sign_extend(instr & 0x1ff, 9);
-        reg[r0] = reg[R_PC] + pc_offset;
-        update_flags(r0);
-        break;
-      }
+    uint16_t r0 = (instr >> 9) & 0x7;
+    uint16_t pc_offset = sign_extend(instr & 0x1ff, 9);
+    reg[r0] = reg[R_PC] + pc_offset;
+    update_flags(r0);
+    break;
+    }
     case OP_TRAP:   /* execute trap */
       {
         switch(instr & 0xFF) {
@@ -412,8 +429,26 @@ int main(int argc, const char* argv[])
           }
           break;
         case TRAP_IN:
+          {
+            printf("Enter a character: ");
+            char c = getchar();
+            putc(c, stdout);
+            reg[R_R0] = (uint16_t)c;
+          }
           break;
         case TRAP_PUTSP:
+          {
+            uint16_t* c = memory + reg[R_R0];
+            while (*c)
+              {
+                char char1 = (*c) & 0xFF;
+                putc(char1, stdout);
+                char char2 = (*c) >> 8;
+                if (char2) putc(char2, stdout);
+                ++c;
+              }
+            fflush(stdout);
+          }
           break;
         case TRAP_HALT:
           puts("HALT");
