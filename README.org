@@ -3,3 +3,5 @@
 * https://justinmeiners.github.io/lc3-vm/index.html#1:9
 * http://hackage.haskell.org/package/LC3
 * https://justinmeiners.github.io/lc3-vm/supplies/lc3-isa.pdf
+* http://lc3tutor.org/
+* git clone git@github.com:edga/lc3.git lc3comp
