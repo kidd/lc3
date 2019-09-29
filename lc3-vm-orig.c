@@ -314,6 +314,7 @@ int main(int argc, const char* argv[])
                 {
                     uint16_t pc_offset = sign_extend((instr) & 0x1ff, 9);
                     uint16_t cond_flag = (instr >> 9) & 0x7;
+                    /* I think we have to update_flags at start */
                     if (cond_flag & reg[R_COND])
                     {
                         reg[R_PC] += pc_offset;
@@ -485,7 +486,6 @@ int main(int argc, const char* argv[])
 
                         break;
                 }
-
                 break;
             case OP_RES:
             case OP_RTI:

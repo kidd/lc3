@@ -315,10 +315,10 @@ int main(int argc, const char* argv[])
             uint16_t r2;
             if (imm_flag) {
               r2 = sign_extend((instr & 0x0000000000011111), 5);
-              r0 = r1 & r2;
+              reg[r0] = reg[r1] & r2;
             } else {
               r2 = (instr & 0x0000000000000111);
-              r0 = r1 & r2;
+              reg[r0] = reg[r1] & reg[r2];
             }
             update_flags(r0);
           }
@@ -352,6 +352,7 @@ int main(int argc, const char* argv[])
         }
         break;
       }
+      break;
     case OP_LDR:    /* load register */
       {
         uint16_t dr = (instr & 0b0000111000000000) >> 9;
